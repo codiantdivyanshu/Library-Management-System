@@ -122,5 +122,5 @@ This project is licensed under the MIT License.
 
 ---
 
-Let me know if you'd like to auto-generate badges (e.g., build, license, Python version), or if you want a `Dockerfile`/deployment instructions added to the README.
+MIT LICENSE
 ```
