@@ -1,48 +1,74 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List
+from ..schemas.author_schemas import AuthorCreate, AuthorUpdate, AuthorResponse
+from ..services.library_service import LibraryService
 
-router = APIRouter(prefix="/authors", tags=["Authors"])
+router = APIRouter(prefix="/authors", tags=["authors"])
 
-# In-memory author storage (can be replaced with DB)
-authors_db = []
+def get_library_service():
+    return LibraryService()
 
-# Pydantic schema for Author
-class Author(BaseModel):
-    id: int
-    name: str
-    bio: Optional[str] = None
+@router.post("/", response_model=AuthorResponse)
+async def create_author(
+    author_data: AuthorCreate,
+    service: LibraryService = Depends(get_library_service)
+):
+    """Create a new author"""
+    try:
+        author = service.create_author(
+            name=author_data.name,
+            biography=author_data.biography,
+            birth_year=author_data.birth_year
+        )
+        return AuthorResponse(**author.to_dict())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    class Config:
-        from_attributes = True
+@router.get("/", response_model=List[AuthorResponse])
+async def get_all_authors(service: LibraryService = Depends(get_library_service)):
+    """Get all authors"""
+    authors = service.get_all_authors()
+    return [AuthorResponse(**author.to_dict()) for author in authors]
 
-# Create an author
-@router.post("/", response_model=Author)
-def create_author(author: Author):
-    if any(a.id == author.id for a in authors_db):
-        raise HTTPException(status_code=400, detail="Author with this ID already exists.")
-    authors_db.append(author)
-    return author
-
-# Get all authors
-@router.get("/", response_model=List[Author])
-def get_authors():
-    return authors_db
-
-# Get a single author by ID
-@router.get("/{author_id}", response_model=Author)
-def get_author(author_id: int):
-    author = next((a for a in authors_db if a.id == author_id), None)
+@router.get("/{author_id}", response_model=AuthorResponse)
+async def get_author(
+    author_id: str,
+    service: LibraryService = Depends(get_library_service)
+):
+    """Get author by ID"""
+    author = service.get_author(author_id)
     if not author:
-        raise HTTPException(status_code=404, detail="Author not found.")
-    return author
+        raise HTTPException(status_code=404, detail="Author not found")
+    return AuthorResponse(**author.to_dict())
 
-# Delete an author
-@router.delete("/{author_id}", response_model=Author)
-def delete_author(author_id: int):
-    author = next((a for a in authors_db if a.id == author_id), None)
-    if not author:
-        raise HTTPException(status_code=404, detail="Author not found.")
-    authors_db.remove(author)
-    return author
+@router.put("/{author_id}", response_model=AuthorResponse)
+async def update_author(
+    author_id: str,
+    author_data: AuthorUpdate,
+    service: LibraryService = Depends(get_library_service)
+):
+    """Update author information"""
+    try:
+        update_dict = author_data.dict(exclude_unset=True)
+        author = service.update_author(author_id, **update_dict)
+        if not author:
+            raise HTTPException(status_code=404, detail="Author not found")
+        return AuthorResponse(**author.to_dict())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
+@router.delete("/{author_id}")
+async def delete_author(
+    author_id: str,
+    service: LibraryService = Depends(get_library_service)
+):
+    """Delete author"""
+    try:
+        if service.delete_author(author_id):
+            return {"message": "Author deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Author not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
