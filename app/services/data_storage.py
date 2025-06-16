@@ -3,16 +3,16 @@ from pathlib import Path
 from typing import Dict, Any
 
 class DataStorage:
-    """File-based storage service demonstrating file I/O and error handling."""
+    """File-based storage service demonstrating file I/O and error handling"""
 
-    def __init__(self, data_file: str = "data/Library_data.json"):
+    def __init__(self, data_file: str = "data/library_data.json"):
         self.data_file = Path(data_file)
-        self.data_file.parent.mkdir(exist_ok=True)
+        self.data_file.parent.mkdir(parents=True, exist_ok=True)
         self._ensure_data_file()
 
     def _ensure_data_file(self):
-        """Create data file if it doesn't exist."""
-        if not self.data_file.exists():
+        """Create or reset the data file if it doesn't exist or is empty"""
+        if not self.data_file.exists() or self.data_file.stat().st_size == 0:
             initial_data = {
                 "authors": {},
                 "books": {},
@@ -21,7 +21,7 @@ class DataStorage:
             self.save_data(initial_data)
 
     def load_data(self) -> Dict[str, Any]:
-        """Load data from JSON file with error handling."""
+        """Load data from JSON file with error handling"""
         try:
             with open(self.data_file, 'r', encoding='utf-8') as file:
                 return json.load(file)
@@ -34,7 +34,7 @@ class DataStorage:
             raise RuntimeError(f"Error loading data: {str(e)}")
 
     def save_data(self, data: Dict[str, Any]):
-        """Save data to the JSON file."""
+        """Save data to the JSON file"""
         try:
             with open(self.data_file, 'w', encoding='utf-8') as file:
                 json.dump(data, file, indent=4)
